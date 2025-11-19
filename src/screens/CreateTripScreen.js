@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,18 +11,24 @@ import {
   Platform,
   Modal,
   Switch,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Calendar } from 'react-native-calendars';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapViewDirections from 'react-native-maps-directions';
 import { supabase } from '../lib/supabase';
 import { getPricingEstimate } from '../lib/pricing';
 import Header from '../components/Header';
+
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 const BRAND_COLOR = '#5fbfc0';
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 const CreateTripScreen = ({ navigation }) => {
+  const mapRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [calculatingPrice, setCalculatingPrice] = useState(false);
@@ -364,6 +370,20 @@ const CreateTripScreen = ({ navigation }) => {
     return `$${parseFloat(amount).toFixed(2)}`;
   };
 
+  const fitMapToRoute = (pickup, destination) => {
+    if (mapRef.current && pickup && destination) {
+      mapRef.current.fitToCoordinates([pickup, destination], {
+        edgePadding: {
+          top: 100,
+          right: 50,
+          bottom: 50,
+          left: 50,
+        },
+        animated: true,
+      });
+    }
+  };
+
   const onCalendarDayPress = (day) => {
     const [year, month, date] = day.dateString.split('-').map(Number);
     const selectedDate = new Date(year, month - 1, date);
@@ -618,6 +638,50 @@ const CreateTripScreen = ({ navigation }) => {
               <Ionicons name="location" size={20} color={BRAND_COLOR} />
             </TouchableOpacity>
           </View>
+
+          {/* Route Overview Map */}
+          {pickupCoords && destinationCoords && (
+            <View style={styles.mapSection}>
+              <Text style={styles.sectionTitle}>🗺️ Route Overview</Text>
+              <View style={styles.mapContainer}>
+                <MapView
+                  ref={mapRef}
+                  provider={PROVIDER_GOOGLE}
+                  style={styles.map}
+                  initialRegion={{
+                    latitude: 39.9612,
+                    longitude: -82.9988,
+                    latitudeDelta: 0.5,
+                    longitudeDelta: 0.5,
+                  }}
+                >
+                  <Marker
+                    coordinate={pickupCoords}
+                    title="Pickup"
+                    pinColor="green"
+                  />
+                  <Marker
+                    coordinate={destinationCoords}
+                    title="Destination"
+                    pinColor="red"
+                  />
+                  <MapViewDirections
+                    origin={pickupCoords}
+                    destination={destinationCoords}
+                    apikey={GOOGLE_MAPS_API_KEY}
+                    strokeWidth={4}
+                    strokeColor={BRAND_COLOR}
+                    onReady={() => {
+                      fitMapToRoute(pickupCoords, destinationCoords);
+                    }}
+                    onError={(errorMessage) => {
+                      console.error('MapViewDirections Error:', errorMessage);
+                    }}
+                  />
+                </MapView>
+              </View>
+            </View>
+          )}
 
           {/* Date & Time Section */}
           <View style={styles.section}>
@@ -1711,6 +1775,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#fff',
+  },
+  mapSection: {
+    marginBottom: 16,
+  },
+  mapContainer: {
+    height: 250,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  map: {
+    width: '100%',
+    height: '100%',
   },
 });
 
