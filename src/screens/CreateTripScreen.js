@@ -258,7 +258,7 @@ const CreateTripScreen = ({ navigation }) => {
   };
 
   const calculatePricing = async () => {
-    if (!pickupAddress || !destinationAddress) return;
+    if (!pickupAddress || !destinationAddress || !clientWeight) return;
 
     setCalculatingPrice(true);
     try {
@@ -266,22 +266,74 @@ const CreateTripScreen = ({ navigation }) => {
       tripDateTime.setHours(pickupTime.getHours());
       tripDateTime.setMinutes(pickupTime.getMinutes());
 
+      // Calculate distance using Directions API (same as EditTripScreen)
+      let calculatedDistance = 0;
+      try {
+        const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+        const directionsUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(pickupAddress)}&destination=${encodeURIComponent(destinationAddress)}&alternatives=true&mode=driving&units=imperial&departure_time=now&traffic_model=best_guess&key=${GOOGLE_MAPS_API_KEY}`;
+
+        console.log('🌐 Fetching route from Google Directions API...');
+        const response = await fetch(directionsUrl);
+        const data = await response.json();
+
+        if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+          // Find fastest route
+          let fastestRoute = data.routes[0];
+          let shortestDuration = data.routes[0].legs[0].duration.value;
+
+          for (let i = 1; i < data.routes.length; i++) {
+            const routeDuration = data.routes[i].legs[0].duration.value;
+            if (routeDuration < shortestDuration) {
+              shortestDuration = routeDuration;
+              fastestRoute = data.routes[i];
+            }
+          }
+
+          const leg = fastestRoute.legs[0];
+          const distanceInMiles = leg.distance.value * 0.000621371;
+          calculatedDistance = Math.round(distanceInMiles * 100) / 100;
+
+          console.log('✅ Distance calculated:', calculatedDistance, 'miles');
+        } else {
+          console.error('❌ Directions API failed:', data.status);
+        }
+      } catch (directionsError) {
+        console.error('❌ Error calling Directions API:', directionsError);
+      }
+
       const pricingData = {
-        pickupTime: tripDateTime.toISOString(),
         pickupAddress,
         destinationAddress,
+        pickupDateTime: tripDateTime.toISOString(),
         isRoundTrip,
         isEmergency,
-        weight: clientWeight ? parseFloat(clientWeight) : null,
+        clientWeight: clientWeight ? parseFloat(clientWeight) : null,
         wheelchairType: wheelchairType === 'none' ? null : wheelchairType,
         additionalPassengers: parseInt(additionalPassengers) || 0,
+        distance: calculatedDistance,
+        clientType: clientType === 'facility' ? 'facility' : 'individual',
       };
+
+      console.log('💰 Calculating pricing with:', pricingData);
 
       const result = await getPricingEstimate(pricingData);
 
-      if (result.success) {
-        setPricingBreakdown(result.breakdown);
-        setEstimatedPrice(result.totalFare);
+      console.log('📊 Pricing result:', result);
+
+      if (result.success && result.pricing) {
+        // Add distance and county info to the breakdown
+        const breakdownWithExtras = {
+          ...result.pricing,
+          distance: calculatedDistance,
+          countyInfo: result.countyInfo,
+          wheelchairInfo: {
+            type: wheelchairType,
+            requirements: wheelchairRequirements,
+            details: wheelchairDetails,
+          },
+        };
+        setPricingBreakdown(breakdownWithExtras);
+        setEstimatedPrice(result.pricing.total);
       } else {
         console.error('Pricing calculation error:', result.error);
       }
