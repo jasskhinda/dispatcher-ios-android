@@ -15,7 +15,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Calendar } from 'react-native-calendars';
-import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../lib/supabase';
 import { getPricingEstimate } from '../lib/pricing';
 import Header from '../components/Header';
@@ -59,6 +58,11 @@ const CreateTripScreen = ({ navigation }) => {
   const [addressInput, setAddressInput] = useState('');
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+
+  // Picker modals
+  const [showClientPicker, setShowClientPicker] = useState(false);
+  const [showFacilityPicker, setShowFacilityPicker] = useState(false);
+  const [showManagedClientPicker, setShowManagedClientPicker] = useState(false);
 
   // Client information (read-only for existing clients)
   const [clientWeight, setClientWeight] = useState('');
@@ -427,72 +431,49 @@ const CreateTripScreen = ({ navigation }) => {
           {clientType === 'individual' ? (
             <View style={styles.formGroup}>
               <Text style={styles.label}>Select Client</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={selectedIndividualClient?.id}
-                  onValueChange={(value) => {
-                    const client = individualClients.find(c => c.id === value);
-                    setSelectedIndividualClient(client);
-                    if (client) {
-                      setClientWeight(client.weight?.toString() || '');
-                    }
-                  }}
-                  style={styles.picker}
-                >
-                  <Picker.Item label="Select a client..." value={null} />
-                  {individualClients.map((client) => (
-                    <Picker.Item
-                      key={client.id}
-                      label={`${client.first_name} ${client.last_name}`}
-                      value={client.id}
-                    />
-                  ))}
-                </Picker>
-              </View>
+              <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => setShowClientPicker(true)}
+              >
+                <Text style={selectedIndividualClient ? styles.pickerButtonText : styles.pickerButtonPlaceholder}>
+                  {selectedIndividualClient
+                    ? `${selectedIndividualClient.first_name} ${selectedIndividualClient.last_name}`
+                    : 'Select a client...'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color="#666" />
+              </TouchableOpacity>
             </View>
           ) : (
             <>
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Select Facility</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={selectedFacility}
-                    onValueChange={setSelectedFacility}
-                    style={styles.picker}
-                  >
-                    <Picker.Item label="Select a facility..." value={null} />
-                    {facilities.map((facility) => (
-                      <Picker.Item key={facility.id} label={facility.name} value={facility.id} />
-                    ))}
-                  </Picker>
-                </View>
+                <TouchableOpacity
+                  style={styles.pickerButton}
+                  onPress={() => setShowFacilityPicker(true)}
+                >
+                  <Text style={selectedFacility ? styles.pickerButtonText : styles.pickerButtonPlaceholder}>
+                    {selectedFacility
+                      ? facilities.find(f => f.id === selectedFacility)?.name
+                      : 'Select a facility...'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#666" />
+                </TouchableOpacity>
               </View>
 
               {selectedFacility && (
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Select Client</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={selectedManagedClient?.id}
-                      onValueChange={(value) => {
-                        const client = managedClients.find(c => c.id === value);
-                        setSelectedManagedClient(client);
-                        if (client) {
-                          setClientWeight(client.weight?.toString() || '');
-                        }
-                      }}
-                      style={styles.picker}
-                    >
-                      <Picker.Item label="Select a client..." value={null} />
-                      {managedClients.map((client) => (
-                        <Picker.Item
-                          key={client.id}
-                          label={`${client.first_name} ${client.last_name}`}
-                          value={client.id}
-                        />
-                      ))}
-                    </Picker>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.pickerButton}
+                    onPress={() => setShowManagedClientPicker(true)}
+                  >
+                    <Text style={selectedManagedClient ? styles.pickerButtonText : styles.pickerButtonPlaceholder}>
+                      {selectedManagedClient
+                        ? `${selectedManagedClient.first_name} ${selectedManagedClient.last_name}`
+                        : 'Select a client...'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color="#666" />
+                  </TouchableOpacity>
                 </View>
               )}
             </>
@@ -599,6 +580,110 @@ const CreateTripScreen = ({ navigation }) => {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Client Picker Modal */}
+      <Modal
+        visible={showClientPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Client</Text>
+            <TouchableOpacity onPress={() => setShowClientPicker(false)}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.suggestionsList}>
+            {individualClients.map((client) => (
+              <TouchableOpacity
+                key={client.id}
+                style={styles.suggestionItem}
+                onPress={() => {
+                  setSelectedIndividualClient(client);
+                  if (client.weight) {
+                    setClientWeight(client.weight.toString());
+                  }
+                  setShowClientPicker(false);
+                }}
+              >
+                <Ionicons name="person-outline" size={20} color="#666" />
+                <Text style={styles.suggestionText}>
+                  {client.first_name} {client.last_name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Facility Picker Modal */}
+      <Modal
+        visible={showFacilityPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Facility</Text>
+            <TouchableOpacity onPress={() => setShowFacilityPicker(false)}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.suggestionsList}>
+            {facilities.map((facility) => (
+              <TouchableOpacity
+                key={facility.id}
+                style={styles.suggestionItem}
+                onPress={() => {
+                  setSelectedFacility(facility.id);
+                  setSelectedManagedClient(null);
+                  setShowFacilityPicker(false);
+                }}
+              >
+                <Ionicons name="business-outline" size={20} color="#666" />
+                <Text style={styles.suggestionText}>{facility.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Managed Client Picker Modal */}
+      <Modal
+        visible={showManagedClientPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Client</Text>
+            <TouchableOpacity onPress={() => setShowManagedClientPicker(false)}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.suggestionsList}>
+            {managedClients.map((client) => (
+              <TouchableOpacity
+                key={client.id}
+                style={styles.suggestionItem}
+                onPress={() => {
+                  setSelectedManagedClient(client);
+                  if (client.weight) {
+                    setClientWeight(client.weight.toString());
+                  }
+                  setShowManagedClientPicker(false);
+                }}
+              >
+                <Ionicons name="person-outline" size={20} color="#666" />
+                <Text style={styles.suggestionText}>
+                  {client.first_name} {client.last_name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -657,17 +742,25 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
   },
-  pickerContainer: {
+  pickerButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#fff',
+    padding: 16,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    overflow: 'hidden',
   },
-  picker: {
-    height: Platform.OS === 'ios' ? 180 : 50,
-    marginTop: Platform.OS === 'ios' ? -60 : 0,
-    marginBottom: Platform.OS === 'ios' ? -60 : 0,
+  pickerButtonText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+  },
+  pickerButtonPlaceholder: {
+    flex: 1,
+    fontSize: 16,
+    color: '#999',
   },
   addressButton: {
     flexDirection: 'row',
