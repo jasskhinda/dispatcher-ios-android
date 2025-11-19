@@ -292,6 +292,57 @@ const CreateTripScreen = ({ navigation }) => {
     }
   };
 
+  const formatDate = (date) => {
+    return date.toLocaleDateString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const formatTime = (date) => {
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const formatCurrency = (amount) => {
+    return `$${parseFloat(amount).toFixed(2)}`;
+  };
+
+  const onCalendarDayPress = (day) => {
+    const [year, month, date] = day.dateString.split('-').map(Number);
+    const selectedDate = new Date(year, month - 1, date);
+    setPickupDate(selectedDate);
+    setShowCalendar(false);
+  };
+
+  const onTimeChange = (event, selectedTime) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+    }
+    if (Platform.OS === 'ios') {
+      setShowTimePicker(false);
+    }
+    if (event.type === 'set' && selectedTime) {
+      setPickupTime(selectedTime);
+    }
+  };
+
+  const onReturnTimeChange = (event, selectedTime) => {
+    if (Platform.OS === 'android') {
+      setShowReturnTimePicker(false);
+    }
+    if (Platform.OS === 'ios') {
+      setShowReturnTimePicker(false);
+    }
+    if (event.type === 'set' && selectedTime) {
+      setReturnTime(selectedTime);
+    }
+  };
+
   const handleSave = async () => {
     // Validation
     if (clientType === 'individual' && !selectedIndividualClient) {
@@ -516,9 +567,353 @@ const CreateTripScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Date and Time - Similar to EditTripScreen */}
-          {/* Wheelchair Options - Similar to EditTripScreen */}
-          {/* Pricing Display - Similar to EditTripScreen */}
+          {/* Date & Time Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>📅 Pickup Date & Time</Text>
+
+            <Text style={styles.fieldLabel}>Pickup Date *</Text>
+            <TouchableOpacity
+              style={styles.inputButton}
+              onPress={() => setShowCalendar(true)}
+            >
+              <View style={styles.inputButtonContent}>
+                <Ionicons name="calendar" size={20} color={BRAND_COLOR} />
+                <Text style={styles.inputButtonText}>{formatDate(pickupDate)}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+
+            <Text style={styles.fieldLabel}>Pickup Time *</Text>
+            <TouchableOpacity
+              style={styles.inputButton}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <View style={styles.inputButtonContent}>
+                <Ionicons name="time" size={20} color={BRAND_COLOR} />
+                <Text style={styles.inputButtonText}>{formatTime(pickupTime)}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Round Trip Section */}
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setIsRoundTrip(!isRoundTrip)}
+            >
+              <View style={styles.checkbox}>
+                {isRoundTrip && (
+                  <Ionicons name="checkmark" size={18} color={BRAND_COLOR} />
+                )}
+              </View>
+              <Text style={styles.checkboxLabel}>Round Trip</Text>
+            </TouchableOpacity>
+
+            {isRoundTrip && (
+              <>
+                <Text style={styles.fieldLabel}>Return Time</Text>
+                <TouchableOpacity
+                  style={styles.inputButton}
+                  onPress={() => setShowReturnTimePicker(true)}
+                >
+                  <View style={styles.inputButtonContent}>
+                    <Ionicons name="arrow-back" size={20} color={BRAND_COLOR} />
+                    <Text style={styles.inputButtonText}>{formatTime(returnTime)}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#999" />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
+          {/* Wheelchair Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>♿ Wheelchair Assistance</Text>
+
+            {['none', 'manual', 'power'].map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.radioOption,
+                  wheelchairType === type && styles.radioOptionActive
+                ]}
+                onPress={() => setWheelchairType(type)}
+              >
+                <View style={[styles.radio, wheelchairType === type && styles.radioActive]}>
+                  {wheelchairType === type && <View style={styles.radioInner} />}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.radioLabel}>
+                    {type === 'none' && 'None (No wheelchair assistance needed)'}
+                    {type === 'manual' && 'Manual Wheelchair'}
+                    {type === 'power' && 'Power Wheelchair'}
+                  </Text>
+                  {type !== 'none' && (
+                    <Text style={styles.wheelchairFeeText}>+$0 wheelchair fee</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            {/* Transport Chair - Disabled */}
+            <View style={[styles.radioOption, styles.radioOptionDisabled]}>
+              <View style={[styles.radio, styles.radioDisabled]}>
+                <Ionicons name="close" size={16} color="#999" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.radioLabel, styles.radioLabelDisabled]}>
+                  Transport wheelchair
+                </Text>
+                <Text style={styles.notAvailableText}>Not Available</Text>
+                <Text style={styles.disabledReasonText}>
+                  Lightweight transport chair - Not permitted for safety reasons
+                </Text>
+              </View>
+            </View>
+
+            {/* Show "Do you want us to provide wheelchair?" only when None is selected */}
+            {wheelchairType === 'none' && (
+              <View style={styles.provideWheelchairSection}>
+                <Text style={styles.provideWheelchairTitle}>
+                  Do you want us to provide a wheelchair?
+                </Text>
+
+                <TouchableOpacity
+                  style={[
+                    styles.radioOption,
+                    wheelchairType === 'provided' && styles.radioOptionActive
+                  ]}
+                  onPress={() => setWheelchairType('provided')}
+                >
+                  <View style={[styles.radio, wheelchairType === 'provided' && styles.radioActive]}>
+                    {wheelchairType === 'provided' && <View style={styles.radioInner} />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.radioLabel}>Yes, please provide a wheelchair</Text>
+                    <Text style={styles.provideWheelchairSubtext}>
+                      We will provide a suitable wheelchair for your trip
+                    </Text>
+                    <Text style={styles.wheelchairFeeText}>+$0 wheelchair rental fee</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Transport Chair Safety Notice */}
+            <View style={styles.safetyNoticeBox}>
+              <View style={styles.safetyNoticeHeader}>
+                <Ionicons name="shield-checkmark" size={20} color="#DC2626" />
+                <Text style={styles.safetyNoticeTitle}>Important Safety Notice</Text>
+              </View>
+              <Text style={styles.safetyNoticeText}>
+                We're unable to accommodate transport wheelchairs due to safety regulations and vehicle accessibility requirements. Please consider selecting a manual or power wheelchair option, or choose "None" if you'd like us to provide suitable wheelchair accommodation.
+              </Text>
+              <Text style={styles.safetyNoticePriority}>
+                Our priority is ensuring safe and comfortable transportation for all passengers.
+              </Text>
+            </View>
+
+            {/* Wheelchair Requirements for "provided" */}
+            {wheelchairType === 'provided' && (
+              <View style={styles.requirementsSection}>
+                <Text style={styles.requirementsTitle}>Equipment Requirements:</Text>
+                {[
+                  { key: 'stepStool', label: 'Step stool' },
+                  { key: 'smallerRamp', label: 'Smaller ramp' },
+                  { key: 'largerRamp', label: 'Larger ramp' },
+                  { key: 'bariatricRamp', label: 'Bariatric ramp' },
+                  { key: 'widerVehicle', label: 'Wider vehicle' },
+                ].map(({ key, label }) => (
+                  <TouchableOpacity
+                    key={key}
+                    style={styles.checkboxRow}
+                    onPress={() => setWheelchairRequirements(prev => ({
+                      ...prev,
+                      [key]: !prev[key]
+                    }))}
+                  >
+                    <View style={[styles.checkbox, wheelchairRequirements[key] && styles.checkboxActive]}>
+                      {wheelchairRequirements[key] && <Text style={styles.checkmark}>✓</Text>}
+                    </View>
+                    <Text style={styles.checkboxLabel}>{label}</Text>
+                  </TouchableOpacity>
+                ))}
+                <TextInput
+                  style={[styles.textInput, styles.textArea]}
+                  value={wheelchairDetails}
+                  onChangeText={setWheelchairDetails}
+                  placeholder="Additional wheelchair details..."
+                  placeholderTextColor="#999"
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            )}
+          </View>
+
+          {/* Emergency Trip */}
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setIsEmergency(!isEmergency)}
+            >
+              <View style={styles.checkbox}>
+                {isEmergency && (
+                  <Ionicons name="checkmark" size={18} color={BRAND_COLOR} />
+                )}
+              </View>
+              <View style={styles.emergencyLabelContainer}>
+                <Text style={styles.checkboxLabel}>🚨 Emergency Trip</Text>
+                <Text style={styles.emergencySubtext}>Additional $40 emergency fee applies</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Additional Passengers */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>👥 Additional Passengers</Text>
+            <Text style={styles.fieldLabel}>Number of Additional Passengers</Text>
+            <TextInput
+              style={styles.textInput}
+              value={additionalPassengers}
+              onChangeText={setAdditionalPassengers}
+              placeholder="0"
+              keyboardType="numeric"
+              placeholderTextColor="#999"
+            />
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle" size={16} color="#666" />
+              <Text style={styles.infoText}>
+                Additional passengers traveling with the primary client (does not include the primary client).
+              </Text>
+            </View>
+          </View>
+
+          {/* Trip Notes */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>📝 Trip Notes</Text>
+            <TextInput
+              style={styles.textArea}
+              multiline
+              numberOfLines={4}
+              value={tripNotes}
+              onChangeText={setTripNotes}
+              placeholder="Special instructions, medical equipment, etc."
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          {/* Pricing Estimate */}
+          {estimatedPrice !== null && (
+            <View style={styles.pricingSection}>
+              <Text style={styles.sectionTitle}>💰 Price Estimate</Text>
+
+              {calculatingPrice ? (
+                <View style={styles.calculatingBox}>
+                  <ActivityIndicator size="small" color={BRAND_COLOR} />
+                  <Text style={styles.calculatingText}>Calculating price...</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.priceCard}>
+                    <Text style={styles.priceLabel}>
+                      {isRoundTrip ? 'Round Trip' : 'One Way'} • {pricingBreakdown?.distance?.toFixed(1) || '0.0'} miles
+                    </Text>
+                    <Text style={styles.priceValue}>{formatCurrency(estimatedPrice)}</Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.breakdownToggle}
+                    onPress={() => setShowPriceBreakdown(!showPriceBreakdown)}
+                  >
+                    <Ionicons
+                      name={showPriceBreakdown ? 'chevron-down' : 'chevron-forward'}
+                      size={20}
+                      color={BRAND_COLOR}
+                    />
+                    <Text style={styles.breakdownToggleText}>View price breakdown</Text>
+                  </TouchableOpacity>
+
+                  {showPriceBreakdown && pricingBreakdown && (
+                    <View style={styles.breakdownDetails}>
+                      {pricingBreakdown.basePrice > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>
+                            Base fare ({isRoundTrip ? '2' : '1'} leg)
+                          </Text>
+                          <Text style={styles.breakdownValue}>
+                            {formatCurrency(pricingBreakdown.basePrice + (pricingBreakdown.roundTripPrice || 0))}
+                          </Text>
+                        </View>
+                      )}
+
+                      {pricingBreakdown.distancePrice > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Distance charge</Text>
+                          <Text style={styles.breakdownValue}>
+                            {formatCurrency(pricingBreakdown.distancePrice)}
+                          </Text>
+                        </View>
+                      )}
+
+                      {pricingBreakdown.countyPrice > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>County surcharge</Text>
+                          <Text style={styles.breakdownValue}>
+                            {formatCurrency(pricingBreakdown.countyPrice)}
+                          </Text>
+                        </View>
+                      )}
+
+                      {pricingBreakdown.deadMileagePrice > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Dead mileage</Text>
+                          <Text style={styles.breakdownValue}>
+                            {formatCurrency(pricingBreakdown.deadMileagePrice)}
+                          </Text>
+                        </View>
+                      )}
+
+                      {pricingBreakdown.weekendAfterHoursSurcharge > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Weekend/After-hours surcharge</Text>
+                          <Text style={styles.breakdownValue}>
+                            {formatCurrency(pricingBreakdown.weekendAfterHoursSurcharge)}
+                          </Text>
+                        </View>
+                      )}
+
+                      {pricingBreakdown.emergencyFee > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Emergency fee</Text>
+                          <Text style={styles.breakdownValue}>
+                            {formatCurrency(pricingBreakdown.emergencyFee)}
+                          </Text>
+                        </View>
+                      )}
+
+                      {pricingBreakdown.holidaySurcharge > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Holiday surcharge</Text>
+                          <Text style={styles.breakdownValue}>
+                            {formatCurrency(pricingBreakdown.holidaySurcharge)}
+                          </Text>
+                        </View>
+                      )}
+
+                      <View style={[styles.breakdownRow, styles.breakdownTotal]}>
+                        <Text style={styles.breakdownTotalLabel}>Total</Text>
+                        <Text style={styles.breakdownTotalValue}>
+                          {formatCurrency(pricingBreakdown.total || estimatedPrice)}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+          )}
 
           {/* Save Button */}
           <TouchableOpacity
@@ -684,6 +1079,65 @@ const CreateTripScreen = ({ navigation }) => {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Calendar Modal */}
+      <Modal
+        visible={showCalendar}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCalendar(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.calendarContainer}>
+            <View style={styles.calendarHeader}>
+              <Text style={styles.calendarHeaderText}>Select Pickup Date</Text>
+              <TouchableOpacity onPress={() => setShowCalendar(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <Calendar
+              current={pickupDate.toISOString().split('T')[0]}
+              minDate={new Date().toISOString().split('T')[0]}
+              onDayPress={onCalendarDayPress}
+              markedDates={{
+                [pickupDate.toISOString().split('T')[0]]: {
+                  selected: true,
+                  selectedColor: BRAND_COLOR,
+                }
+              }}
+              theme={{
+                todayTextColor: BRAND_COLOR,
+                selectedDayBackgroundColor: BRAND_COLOR,
+                selectedDayTextColor: '#ffffff',
+                arrowColor: BRAND_COLOR,
+                monthTextColor: '#333',
+                textDayFontWeight: '500',
+                textMonthFontWeight: 'bold',
+                textDayHeaderFontWeight: '600',
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Time Pickers */}
+      {showTimePicker && (
+        <DateTimePicker
+          value={pickupTime}
+          mode="time"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={onTimeChange}
+        />
+      )}
+
+      {showReturnTimePicker && (
+        <DateTimePicker
+          value={returnTime}
+          mode="time"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={onReturnTimeChange}
+        />
+      )}
     </View>
   );
 };
@@ -852,6 +1306,359 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     marginLeft: 12,
+  },
+  section: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  inputButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  inputButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputButtonText: {
+    fontSize: 15,
+    color: '#333',
+    marginLeft: 10,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  checkboxActive: {
+    backgroundColor: BRAND_COLOR,
+    borderColor: BRAND_COLOR,
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: '#1F2937',
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  radioOptionActive: {
+    borderColor: BRAND_COLOR,
+    backgroundColor: '#F0F9FF',
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioActive: {
+    borderColor: BRAND_COLOR,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: BRAND_COLOR,
+  },
+  radioLabel: {
+    fontSize: 14,
+    color: '#1F2937',
+    flex: 1,
+  },
+  wheelchairFeeText: {
+    fontSize: 12,
+    color: '#10B981',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  radioOptionDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#F9FAFB',
+  },
+  radioDisabled: {
+    borderColor: '#9CA3AF',
+    backgroundColor: '#F3F4F6',
+  },
+  radioLabelDisabled: {
+    color: '#6B7280',
+  },
+  notAvailableText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  disabledReasonText: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  provideWheelchairSection: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#F0F9FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  provideWheelchairTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0C4A6E',
+    marginBottom: 12,
+  },
+  provideWheelchairSubtext: {
+    fontSize: 13,
+    color: '#475569',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  safetyNoticeBox: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  safetyNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  safetyNoticeTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginLeft: 8,
+  },
+  safetyNoticeText: {
+    fontSize: 13,
+    color: '#7F1D1D',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  safetyNoticePriority: {
+    fontSize: 13,
+    color: '#991B1B',
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  requirementsSection: {
+    marginTop: 12,
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+  },
+  requirementsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2E4F54',
+    marginBottom: 12,
+  },
+  textInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  textArea: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: '#333',
+    textAlignVertical: 'top',
+    minHeight: 100,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  emergencyLabelContainer: {
+    flex: 1,
+  },
+  emergencySubtext: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 10,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  infoText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 16,
+  },
+  pricingSection: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  calculatingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  calculatingText: {
+    marginLeft: 10,
+    fontSize: 15,
+    color: '#666',
+  },
+  priceCard: {
+    backgroundColor: BRAND_COLOR,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  priceLabel: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: 8,
+  },
+  priceValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  breakdownToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  breakdownToggleText: {
+    fontSize: 15,
+    color: BRAND_COLOR,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  breakdownDetails: {
+    marginTop: 12,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    color: '#666',
+    flex: 1,
+    marginRight: 12,
+  },
+  breakdownValue: {
+    fontSize: 14,
+    color: '#1a1a1a',
+    fontWeight: '600',
+  },
+  breakdownTotal: {
+    borderTopWidth: 2,
+    borderTopColor: BRAND_COLOR,
+    borderBottomWidth: 0,
+    marginTop: 8,
+    paddingTop: 12,
+  },
+  breakdownTotalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+  },
+  breakdownTotalValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: BRAND_COLOR,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  calendarContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 400,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: BRAND_COLOR,
+  },
+  calendarHeaderText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 
