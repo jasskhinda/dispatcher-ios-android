@@ -24,7 +24,8 @@
         "NSLocationWhenInUseUsageDescription": "CCT Dispatcher needs access to your location to help manage trip routes and driver assignments."
       },
       "config": {
-        "usesNonExemptEncryption": false
+        "usesNonExemptEncryption": false,
+        "googleMapsApiKey": ""
       }
     },
     "android": {
@@ -41,7 +42,12 @@
         "VIBRATE",
         "NOTIFICATIONS",
         "POST_NOTIFICATIONS"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": ""
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
