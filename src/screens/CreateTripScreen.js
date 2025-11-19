@@ -665,19 +665,23 @@ const CreateTripScreen = ({ navigation }) => {
                     title="Destination"
                     pinColor="red"
                   />
-                  <MapViewDirections
-                    origin={pickupCoords}
-                    destination={destinationCoords}
-                    apikey={GOOGLE_MAPS_API_KEY}
-                    strokeWidth={4}
-                    strokeColor={BRAND_COLOR}
-                    onReady={() => {
-                      fitMapToRoute(pickupCoords, destinationCoords);
-                    }}
-                    onError={(errorMessage) => {
-                      console.error('MapViewDirections Error:', errorMessage);
-                    }}
-                  />
+                  {GOOGLE_MAPS_API_KEY && (
+                    <MapViewDirections
+                      origin={pickupCoords}
+                      destination={destinationCoords}
+                      apikey={GOOGLE_MAPS_API_KEY}
+                      strokeWidth={4}
+                      strokeColor={BRAND_COLOR}
+                      mode="DRIVING"
+                      onReady={() => {
+                        fitMapToRoute(pickupCoords, destinationCoords);
+                      }}
+                      onError={(errorMessage) => {
+                        console.warn('MapViewDirections Error:', errorMessage);
+                        // Silently fail - map will still show markers
+                      }}
+                    />
+                  )}
                 </MapView>
               </View>
             </View>
