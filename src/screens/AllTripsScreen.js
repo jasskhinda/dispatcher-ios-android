@@ -205,6 +205,17 @@ const AllTripsScreen = () => {
     <View style={styles.container}>
       <Header showMessaging={true} />
 
+      {/* Create New Trip Button */}
+      <View style={styles.createButtonContainer}>
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={() => navigation.navigate('CreateTrip')}
+        >
+          <Ionicons name="add-circle" size={24} color="#fff" />
+          <Text style={styles.createButtonText}>Create New Trip</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Filter Tabs */}
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -359,6 +370,33 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+  },
+  createButtonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BRAND_COLOR,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  createButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
   },
   filterContainer: {
     paddingVertical: 12,

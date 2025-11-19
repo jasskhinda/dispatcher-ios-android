@@ -18,6 +18,7 @@ import FacilityOverviewScreen from '../screens/FacilityOverviewScreen';
 import FacilityMonthlyInvoiceScreen from '../screens/FacilityMonthlyInvoiceScreen';
 import TripDetailsScreen from '../screens/TripDetailsScreen';
 import EditTripScreen from '../screens/EditTripScreen';
+import CreateTripScreen from '../screens/CreateTripScreen';
 import DriversScreen from '../screens/DriversScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import MessagingScreen from '../screens/MessagingScreen';
@@ -176,6 +177,11 @@ const AppStack = () => (
     <Stack.Screen
       name="EditTrip"
       component={EditTripScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="CreateTrip"
+      component={CreateTripScreen}
       options={{ headerShown: false }}
     />
     <Stack.Screen

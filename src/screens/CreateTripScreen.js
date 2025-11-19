@@ -1,0 +1,762 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  TextInput,
+  Platform,
+  Modal,
+  Switch,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Calendar } from 'react-native-calendars';
+import { Picker } from '@react-native-picker/picker';
+import { supabase } from '../lib/supabase';
+import { getPricingEstimate } from '../lib/pricing';
+import Header from '../components/Header';
+
+const BRAND_COLOR = '#5fbfc0';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
+const CreateTripScreen = ({ navigation }) => {
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [calculatingPrice, setCalculatingPrice] = useState(false);
+
+  // Client type selection
+  const [clientType, setClientType] = useState('individual'); // 'individual' or 'facility'
+  const [facilities, setFacilities] = useState([]);
+  const [selectedFacility, setSelectedFacility] = useState(null);
+  const [managedClients, setManagedClients] = useState([]);
+  const [selectedManagedClient, setSelectedManagedClient] = useState(null);
+  const [individualClients, setIndividualClients] = useState([]);
+  const [selectedIndividualClient, setSelectedIndividualClient] = useState(null);
+
+  // Form state
+  const [pickupDate, setPickupDate] = useState(new Date());
+  const [pickupTime, setPickupTime] = useState(new Date());
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tripNotes, setTripNotes] = useState('');
+  const [isRoundTrip, setIsRoundTrip] = useState(false);
+  const [returnTime, setReturnTime] = useState(new Date());
+  const [showReturnTimePicker, setShowReturnTimePicker] = useState(false);
+
+  // Address state
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [destinationAddress, setDestinationAddress] = useState('');
+  const [pickupCoords, setPickupCoords] = useState(null);
+  const [destinationCoords, setDestinationCoords] = useState(null);
+
+  // Address input modal
+  const [showAddressInput, setShowAddressInput] = useState(false);
+  const [addressInputType, setAddressInputType] = useState('pickup');
+  const [addressInput, setAddressInput] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+
+  // Client information (read-only for existing clients)
+  const [clientWeight, setClientWeight] = useState('');
+  const [clientHeightFeet, setClientHeightFeet] = useState('5');
+  const [clientHeightInches, setClientHeightInches] = useState('0');
+
+  // Trip details
+  const [wheelchairType, setWheelchairType] = useState('none');
+  const [wheelchairRequirements, setWheelchairRequirements] = useState({
+    stepStool: false,
+    smallerRamp: false,
+    largerRamp: false,
+    bariatricRamp: false,
+    widerVehicle: false,
+  });
+  const [wheelchairDetails, setWheelchairDetails] = useState('');
+  const [isEmergency, setIsEmergency] = useState(false);
+  const [additionalPassengers, setAdditionalPassengers] = useState('0');
+
+  // Pricing
+  const [pricingBreakdown, setPricingBreakdown] = useState(null);
+  const [estimatedPrice, setEstimatedPrice] = useState(null);
+  const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
+
+  useEffect(() => {
+    fetchClients();
+    fetchFacilities();
+  }, []);
+
+  useEffect(() => {
+    if (clientType === 'facility' && selectedFacility) {
+      fetchManagedClients(selectedFacility);
+    }
+  }, [selectedFacility]);
+
+  // Recalculate price when relevant fields change
+  useEffect(() => {
+    if (pickupAddress && destinationAddress) {
+      calculatePricing();
+    }
+  }, [
+    pickupDate,
+    pickupTime,
+    isRoundTrip,
+    returnTime,
+    clientWeight,
+    wheelchairType,
+    isEmergency,
+    pickupAddress,
+    destinationAddress,
+    additionalPassengers,
+  ]);
+
+  // Debounce address input
+  useEffect(() => {
+    if (addressInput && addressInput.length >= 3) {
+      const timeoutId = setTimeout(() => {
+        fetchAddressSuggestions(addressInput);
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setAddressSuggestions([]);
+    }
+  }, [addressInput]);
+
+  const fetchClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'client')
+        .order('first_name', { ascending: true });
+
+      if (error) throw error;
+      setIndividualClients(data || []);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
+
+  const fetchFacilities = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('facilities')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setFacilities(data || []);
+    } catch (error) {
+      console.error('Error fetching facilities:', error);
+    }
+  };
+
+  const fetchManagedClients = async (facilityId) => {
+    try {
+      const { data, error } = await supabase
+        .from('facility_managed_clients')
+        .select('*')
+        .eq('facility_id', facilityId)
+        .order('first_name', { ascending: true });
+
+      if (error) throw error;
+      setManagedClients(data || []);
+    } catch (error) {
+      console.error('Error fetching managed clients:', error);
+    }
+  };
+
+  const fetchAddressSuggestions = async (input) => {
+    if (!input || input.length < 3) {
+      setAddressSuggestions([]);
+      return;
+    }
+
+    setIsLoadingSuggestions(true);
+    try {
+      const url = `${API_URL}/api/maps/autocomplete?input=${encodeURIComponent(input)}`;
+      console.log('🔍 Fetching autocomplete:', url);
+
+      const response = await fetch(url);
+      console.log('📡 Response status:', response.status, response.ok);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('❌ Error response:', errorText.substring(0, 200));
+        setAddressSuggestions([]);
+        return;
+      }
+
+      const responseText = await response.text();
+      console.log('📄 Response preview:', responseText.substring(0, 100));
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.log('⚠️ Not valid JSON, got HTML or other format');
+        setAddressSuggestions([]);
+        return;
+      }
+
+      if (data.status === 'OK' && data.predictions) {
+        console.log('✅ Got', data.predictions.length, 'suggestions');
+        setAddressSuggestions(data.predictions);
+      } else {
+        console.log('⚠️ No predictions in response:', data.status);
+        setAddressSuggestions([]);
+      }
+    } catch (error) {
+      console.log('⚠️ Fetch error (silently handled):', error.message);
+      setAddressSuggestions([]);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
+
+  const getPlaceDetails = async (placeId) => {
+    try {
+      const url = `${API_URL}/api/maps/place-details?place_id=${placeId}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.result) {
+        return {
+          lat: data.result.geometry.location.lat,
+          lng: data.result.geometry.location.lng,
+          formatted_address: data.result.formatted_address,
+        };
+      }
+    } catch (error) {
+      console.error('Error getting place details:', error);
+    }
+    return null;
+  };
+
+  const handleSelectAddress = async (prediction) => {
+    const placeDetails = await getPlaceDetails(prediction.place_id);
+
+    if (placeDetails) {
+      if (addressInputType === 'pickup') {
+        setPickupAddress(placeDetails.formatted_address);
+        setPickupCoords({ lat: placeDetails.lat, lng: placeDetails.lng });
+      } else {
+        setDestinationAddress(placeDetails.formatted_address);
+        setDestinationCoords({ lat: placeDetails.lat, lng: placeDetails.lng });
+      }
+    }
+
+    setShowAddressInput(false);
+    setAddressInput('');
+    setAddressSuggestions([]);
+  };
+
+  const calculatePricing = async () => {
+    if (!pickupAddress || !destinationAddress) return;
+
+    setCalculatingPrice(true);
+    try {
+      const tripDateTime = new Date(pickupDate);
+      tripDateTime.setHours(pickupTime.getHours());
+      tripDateTime.setMinutes(pickupTime.getMinutes());
+
+      const pricingData = {
+        pickupTime: tripDateTime.toISOString(),
+        pickupAddress,
+        destinationAddress,
+        isRoundTrip,
+        isEmergency,
+        weight: clientWeight ? parseFloat(clientWeight) : null,
+        wheelchairType: wheelchairType === 'none' ? null : wheelchairType,
+        additionalPassengers: parseInt(additionalPassengers) || 0,
+      };
+
+      const result = await getPricingEstimate(pricingData);
+
+      if (result.success) {
+        setPricingBreakdown(result.breakdown);
+        setEstimatedPrice(result.totalFare);
+      } else {
+        console.error('Pricing calculation error:', result.error);
+      }
+    } catch (error) {
+      console.error('Error calculating pricing:', error);
+    } finally {
+      setCalculatingPrice(false);
+    }
+  };
+
+  const handleSave = async () => {
+    // Validation
+    if (clientType === 'individual' && !selectedIndividualClient) {
+      Alert.alert('Error', 'Please select an individual client');
+      return;
+    }
+
+    if (clientType === 'facility' && (!selectedFacility || !selectedManagedClient)) {
+      Alert.alert('Error', 'Please select a facility and client');
+      return;
+    }
+
+    if (!pickupAddress || !destinationAddress) {
+      Alert.alert('Error', 'Please enter pickup and destination addresses');
+      return;
+    }
+
+    if (!estimatedPrice) {
+      Alert.alert('Error', 'Price calculation failed. Please try again.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const tripDateTime = new Date(pickupDate);
+      tripDateTime.setHours(pickupTime.getHours());
+      tripDateTime.setMinutes(pickupTime.getMinutes());
+
+      const returnDateTime = isRoundTrip ? new Date(pickupDate) : null;
+      if (returnDateTime) {
+        returnDateTime.setHours(returnTime.getHours());
+        returnDateTime.setMinutes(returnTime.getMinutes());
+      }
+
+      const tripData = {
+        pickup_address: pickupAddress,
+        destination_address: destinationAddress,
+        pickup_time: tripDateTime.toISOString(),
+        return_time: returnDateTime?.toISOString() || null,
+        is_round_trip: isRoundTrip,
+        passenger_name: clientType === 'individual'
+          ? `${selectedIndividualClient.first_name} ${selectedIndividualClient.last_name}`
+          : `${selectedManagedClient.first_name} ${selectedManagedClient.last_name}`,
+        passenger_phone: clientType === 'individual'
+          ? selectedIndividualClient.phone_number
+          : selectedManagedClient.phone_number,
+        wheelchair_accessible: wheelchairType !== 'none',
+        wheelchair_type: wheelchairType === 'none' ? null : wheelchairType,
+        wheelchair_details: wheelchairDetails || null,
+        estimated_price: estimatedPrice,
+        pricing_breakdown: pricingBreakdown,
+        notes: tripNotes || null,
+        is_emergency: isEmergency,
+        additional_passengers: parseInt(additionalPassengers) || 0,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      };
+
+      if (clientType === 'individual') {
+        tripData.user_id = selectedIndividualClient.id;
+      } else {
+        tripData.facility_id = selectedFacility;
+        tripData.managed_client_id = selectedManagedClient.id;
+      }
+
+      const { data, error } = await supabase
+        .from('trips')
+        .insert([tripData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Send notification to dispatchers about new trip
+      try {
+        await fetch(`${API_URL}/api/notifications/send-dispatcher-push`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tripId: data.id,
+            action: 'created',
+            source: clientType === 'facility' ? 'facility_app' : 'booking_app',
+            tripDetails: {
+              pickup_address: pickupAddress,
+              destination_address: destinationAddress,
+              pickup_time: tripDateTime.toISOString(),
+            },
+          }),
+        });
+      } catch (notifError) {
+        console.error('Failed to send notification:', notifError);
+      }
+
+      Alert.alert('Success', 'Trip created successfully', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ]);
+    } catch (error) {
+      console.error('Error creating trip:', error);
+      Alert.alert('Error', 'Failed to create trip');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ... (rest of the component with UI will be added in next part)
+
+  return (
+    <View style={styles.container}>
+      <Header
+        title="Create New Trip"
+        onBack={() => navigation.goBack()}
+        showMessaging={false}
+      />
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+          <Text style={styles.sectionTitle}>Client Type</Text>
+          <View style={styles.clientTypeSelector}>
+            <TouchableOpacity
+              style={[styles.typeButton, clientType === 'individual' && styles.typeButtonActive]}
+              onPress={() => setClientType('individual')}
+            >
+              <Text style={[styles.typeButtonText, clientType === 'individual' && styles.typeButtonTextActive]}>
+                Individual Client
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.typeButton, clientType === 'facility' && styles.typeButtonActive]}
+              onPress={() => setClientType('facility')}
+            >
+              <Text style={[styles.typeButtonText, clientType === 'facility' && styles.typeButtonTextActive]}>
+                Facility Client
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Client Selection */}
+          {clientType === 'individual' ? (
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Select Client</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={selectedIndividualClient?.id}
+                  onValueChange={(value) => {
+                    const client = individualClients.find(c => c.id === value);
+                    setSelectedIndividualClient(client);
+                    if (client) {
+                      setClientWeight(client.weight?.toString() || '');
+                    }
+                  }}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="Select a client..." value={null} />
+                  {individualClients.map((client) => (
+                    <Picker.Item
+                      key={client.id}
+                      label={`${client.first_name} ${client.last_name}`}
+                      value={client.id}
+                    />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+          ) : (
+            <>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Select Facility</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={selectedFacility}
+                    onValueChange={setSelectedFacility}
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="Select a facility..." value={null} />
+                    {facilities.map((facility) => (
+                      <Picker.Item key={facility.id} label={facility.name} value={facility.id} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              {selectedFacility && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Select Client</Text>
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={selectedManagedClient?.id}
+                      onValueChange={(value) => {
+                        const client = managedClients.find(c => c.id === value);
+                        setSelectedManagedClient(client);
+                        if (client) {
+                          setClientWeight(client.weight?.toString() || '');
+                        }
+                      }}
+                      style={styles.picker}
+                    >
+                      <Picker.Item label="Select a client..." value={null} />
+                      {managedClients.map((client) => (
+                        <Picker.Item
+                          key={client.id}
+                          label={`${client.first_name} ${client.last_name}`}
+                          value={client.id}
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+
+          {/* Addresses */}
+          <Text style={styles.sectionTitle}>Trip Details</Text>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Pickup Address</Text>
+            <TouchableOpacity
+              style={styles.addressButton}
+              onPress={() => {
+                setAddressInputType('pickup');
+                setAddressInput(pickupAddress);
+                setShowAddressInput(true);
+              }}
+            >
+              <Text style={pickupAddress ? styles.addressText : styles.addressPlaceholder}>
+                {pickupAddress || 'Enter pickup address'}
+              </Text>
+              <Ionicons name="location" size={20} color={BRAND_COLOR} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Destination Address</Text>
+            <TouchableOpacity
+              style={styles.addressButton}
+              onPress={() => {
+                setAddressInputType('destination');
+                setAddressInput(destinationAddress);
+                setShowAddressInput(true);
+              }}
+            >
+              <Text style={destinationAddress ? styles.addressText : styles.addressPlaceholder}>
+                {destinationAddress || 'Enter destination address'}
+              </Text>
+              <Ionicons name="location" size={20} color={BRAND_COLOR} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Date and Time - Similar to EditTripScreen */}
+          {/* Wheelchair Options - Similar to EditTripScreen */}
+          {/* Pricing Display - Similar to EditTripScreen */}
+
+          {/* Save Button */}
+          <TouchableOpacity
+            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                <Text style={styles.saveButtonText}>Create Trip</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* Address Input Modal */}
+      <Modal
+        visible={showAddressInput}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {addressInputType === 'pickup' ? 'Pickup Address' : 'Destination Address'}
+            </Text>
+            <TouchableOpacity onPress={() => setShowAddressInput(false)}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TextInput
+            style={styles.addressInput}
+            placeholder="Start typing address..."
+            value={addressInput}
+            onChangeText={setAddressInput}
+            autoFocus
+          />
+
+          {isLoadingSuggestions && (
+            <ActivityIndicator style={styles.loader} color={BRAND_COLOR} />
+          )}
+
+          <ScrollView style={styles.suggestionsList}>
+            {addressSuggestions.map((suggestion) => (
+              <TouchableOpacity
+                key={suggestion.place_id}
+                style={styles.suggestionItem}
+                onPress={() => handleSelectAddress(suggestion)}
+              >
+                <Ionicons name="location-outline" size={20} color="#666" />
+                <Text style={styles.suggestionText}>{suggestion.description}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  clientTypeSelector: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+  },
+  typeButtonActive: {
+    backgroundColor: BRAND_COLOR,
+    borderColor: BRAND_COLOR,
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  typeButtonTextActive: {
+    color: '#fff',
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  pickerContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  picker: {
+    height: 50,
+  },
+  addressButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  addressText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+  },
+  addressPlaceholder: {
+    flex: 1,
+    fontSize: 14,
+    color: '#999',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BRAND_COLOR,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginTop: 24,
+    marginBottom: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+  },
+  cancelText: {
+    fontSize: 16,
+    color: BRAND_COLOR,
+    fontWeight: '600',
+  },
+  addressInput: {
+    padding: 16,
+    fontSize: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  loader: {
+    padding: 16,
+  },
+  suggestionsList: {
+    flex: 1,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  suggestionText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 12,
+  },
+});
+
+export default CreateTripScreen;
