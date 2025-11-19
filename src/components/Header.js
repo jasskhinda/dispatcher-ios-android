@@ -2,10 +2,12 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useUnreadMessages } from '../contexts/UnreadMessagesContext';
 
 export default function Header({ title, onBack, showMessaging = true }) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useUnreadMessages();
 
   // If title and onBack are provided, show simple back header
   if (title && onBack) {
@@ -44,7 +46,16 @@ export default function Header({ title, onBack, showMessaging = true }) {
             style={styles.messageButton}
             onPress={() => navigation.navigate('Messaging')}
           >
-            <Text style={styles.messageIcon}>💬</Text>
+            <View style={styles.messageIconContainer}>
+              <Text style={styles.messageIcon}>💬</Text>
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         )}
       </View>
@@ -105,7 +116,29 @@ const styles = StyleSheet.create({
   messageButton: {
     padding: 8,
   },
+  messageIconContainer: {
+    position: 'relative',
+  },
   messageIcon: {
     fontSize: 24,
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

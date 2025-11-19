@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { useUnreadMessages } from '../contexts/UnreadMessagesContext';
 import Header from '../components/Header';
 
 const BRAND_COLOR = '#5fbfc0';
@@ -24,6 +25,7 @@ const MessagingScreen = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { refreshUnreadCount } = useUnreadMessages();
   const flatListRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
@@ -208,6 +210,9 @@ const MessagingScreen = () => {
             'id',
             unreadMessages.map((m) => m.id)
           );
+
+        // Refresh unread count badge
+        refreshUnreadCount();
       }
 
       setTimeout(scrollToBottom, 100);
