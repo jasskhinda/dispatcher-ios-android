@@ -251,10 +251,10 @@ const CreateTripScreen = ({ navigation }) => {
     if (placeDetails) {
       if (addressInputType === 'pickup') {
         setPickupAddress(placeDetails.formatted_address);
-        setPickupCoords({ lat: placeDetails.lat, lng: placeDetails.lng });
+        setPickupCoords({ latitude: placeDetails.lat, longitude: placeDetails.lng });
       } else {
         setDestinationAddress(placeDetails.formatted_address);
-        setDestinationCoords({ lat: placeDetails.lat, lng: placeDetails.lng });
+        setDestinationCoords({ latitude: placeDetails.lat, longitude: placeDetails.lng });
       }
     }
 
