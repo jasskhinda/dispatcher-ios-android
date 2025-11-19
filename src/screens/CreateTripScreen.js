@@ -662,9 +662,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    overflow: 'hidden',
   },
   picker: {
-    height: 50,
+    height: Platform.OS === 'ios' ? 180 : 50,
+    marginTop: Platform.OS === 'ios' ? -60 : 0,
+    marginBottom: Platform.OS === 'ios' ? -60 : 0,
   },
   addressButton: {
     flexDirection: 'row',
