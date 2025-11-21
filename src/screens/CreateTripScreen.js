@@ -451,26 +451,44 @@ const CreateTripScreen = ({ navigation }) => {
 
       const tripData = {
         pickup_address: pickupAddress,
+        pickup_details: null,
         destination_address: destinationAddress,
+        destination_details: null,
         pickup_time: tripDateTime.toISOString(),
-        return_time: returnDateTime?.toISOString() || null,
+        return_pickup_time: returnDateTime?.toISOString() || null,
         is_round_trip: isRoundTrip,
-        passenger_name: clientType === 'individual'
-          ? `${selectedIndividualClient.first_name} ${selectedIndividualClient.last_name}`
-          : `${selectedManagedClient.first_name} ${selectedManagedClient.last_name}`,
-        passenger_phone: clientType === 'individual'
-          ? selectedIndividualClient.phone_number
-          : selectedManagedClient.phone_number,
-        wheelchair_accessible: wheelchairType !== 'none',
         wheelchair_type: wheelchairType === 'none' ? null : wheelchairType,
-        wheelchair_details: wheelchairDetails || null,
-        estimated_price: estimatedPrice,
-        pricing_breakdown: pricingBreakdown,
-        notes: tripNotes || null,
-        is_emergency: isEmergency,
         additional_passengers: parseInt(additionalPassengers) || 0,
+        trip_notes: tripNotes || null,
         status: 'pending',
-        created_at: new Date().toISOString(),
+        price: estimatedPrice || 0,
+        distance: pricingBreakdown?.distance || null,
+        route_duration: null,
+        route_distance_text: pricingBreakdown?.distance ? `${pricingBreakdown.distance.toFixed(1)} mi` : null,
+        route_duration_text: null,
+        is_emergency: isEmergency,
+        pricing_breakdown_data: pricingBreakdown ? {
+          pricing: pricingBreakdown,
+          distance: { distance: pricingBreakdown.distance, unit: 'miles' },
+          summary: {
+            isRoundTrip,
+            isEmergency,
+            wheelchairType,
+            additionalPassengers: parseInt(additionalPassengers) || 0,
+          },
+          wheelchairInfo: {
+            type: wheelchairType,
+            requirements: wheelchairType === 'provided' ? wheelchairRequirements : null,
+            details: wheelchairType === 'provided' ? wheelchairDetails : null
+          },
+          clientInfo: {
+            weight: clientWeight ? parseInt(clientWeight) : null,
+          },
+          createdAt: new Date().toISOString(),
+          source: 'DispatcherMobileApp'
+        } : null,
+        pricing_breakdown_total: estimatedPrice || null,
+        pricing_breakdown_locked_at: estimatedPrice ? new Date().toISOString() : null,
       };
 
       if (clientType === 'individual') {
@@ -960,7 +978,7 @@ const CreateTripScreen = ({ navigation }) => {
                       {pricingBreakdown.basePrice > 0 && (
                         <View style={styles.breakdownRow}>
                           <Text style={styles.breakdownLabel}>
-                            Base fare ({isRoundTrip ? '2' : '1'} leg)
+                            Base fare ({isRoundTrip ? '2' : '1'} {isRoundTrip ? 'legs' : 'leg'} @ {pricingBreakdown.isBariatric ? '$150/leg (Bariatric rate)' : '$50/leg'})
                           </Text>
                           <Text style={styles.breakdownValue}>
                             {formatCurrency(pricingBreakdown.basePrice + (pricingBreakdown.roundTripPrice || 0))}
@@ -970,7 +988,9 @@ const CreateTripScreen = ({ navigation }) => {
 
                       {pricingBreakdown.distancePrice > 0 && (
                         <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>Distance charge</Text>
+                          <Text style={styles.breakdownLabel}>
+                            Distance charge ({pricingBreakdown.countyInfo?.isInFranklinCounty ? '$3/mile (Franklin County)' : '$4/mile (Outside Franklin County)'})
+                          </Text>
                           <Text style={styles.breakdownValue}>
                             {formatCurrency(pricingBreakdown.distancePrice)}
                           </Text>
@@ -979,7 +999,9 @@ const CreateTripScreen = ({ navigation }) => {
 
                       {pricingBreakdown.countyPrice > 0 && (
                         <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>County surcharge</Text>
+                          <Text style={styles.breakdownLabel}>
+                            County surcharge ({pricingBreakdown.countyInfo?.countiesOut || 2} counties @ $50/county)
+                          </Text>
                           <Text style={styles.breakdownValue}>
                             {formatCurrency(pricingBreakdown.countyPrice)}
                           </Text>
@@ -988,7 +1010,9 @@ const CreateTripScreen = ({ navigation }) => {
 
                       {pricingBreakdown.deadMileagePrice > 0 && (
                         <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>Dead mileage</Text>
+                          <Text style={styles.breakdownLabel}>
+                            Dead mileage ({(pricingBreakdown.deadMileagePrice / 4).toFixed(1)} mi @ $4/mile)
+                          </Text>
                           <Text style={styles.breakdownValue}>
                             {formatCurrency(pricingBreakdown.deadMileagePrice)}
                           </Text>
@@ -1028,6 +1052,13 @@ const CreateTripScreen = ({ navigation }) => {
                           {formatCurrency(pricingBreakdown.total || estimatedPrice)}
                         </Text>
                       </View>
+
+                      <Text style={styles.pricingDisclaimer}>
+                        • Additional charges apply for off-hours, weekends, or wheelchair accessibility
+                      </Text>
+                      <Text style={styles.pricingDisclaimer}>
+                        • Final fare may vary based on actual route and traffic conditions
+                      </Text>
                     </View>
                   )}
                 </>
@@ -1748,6 +1779,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: BRAND_COLOR,
+  },
+  pricingDisclaimer: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 8,
+    lineHeight: 16,
   },
   modalOverlay: {
     flex: 1,

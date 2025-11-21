@@ -19,7 +19,7 @@ export const UnreadMessagesProvider = ({ children }) => {
 
     try {
       // Count unread messages in all conversations
-      const { data, error } = await supabase
+      const { count, error } = await supabase
         .from('messages')
         .select('id', { count: 'exact', head: true })
         .eq('read_by_dispatcher', false)
@@ -30,7 +30,7 @@ export const UnreadMessagesProvider = ({ children }) => {
         return;
       }
 
-      setUnreadCount(data || 0);
+      setUnreadCount(count || 0);
     } catch (err) {
       console.error('Error in fetchUnreadCount:', err);
     }

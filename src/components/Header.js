@@ -1,13 +1,16 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnreadMessages } from '../contexts/UnreadMessagesContext';
+import { useNotifications } from '../contexts/NotificationsContext';
 
-export default function Header({ title, onBack, showMessaging = true }) {
+export default function Header({ title, onBack, showMessaging = true, showNotifications = true }) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { unreadCount } = useUnreadMessages();
+  const { unreadCount: unreadMessagesCount } = useUnreadMessages();
+  const { unreadCount: unreadNotificationsCount } = useNotifications();
 
   // If title and onBack are provided, show simple back header
   if (title && onBack) {
@@ -40,24 +43,46 @@ export default function Header({ title, onBack, showMessaging = true }) {
           />
         </View>
 
-        {/* Message Icon */}
-        {showMessaging && (
-          <TouchableOpacity
-            style={styles.messageButton}
-            onPress={() => navigation.navigate('Messaging')}
-          >
-            <View style={styles.messageIconContainer}>
-              <Text style={styles.messageIcon}>💬</Text>
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        )}
+        {/* Icons Container */}
+        <View style={styles.iconsContainer}>
+          {/* Notifications Icon */}
+          {showNotifications && (
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <View style={styles.iconContainer}>
+                <Ionicons name="notifications-outline" size={26} color="#333" />
+                {unreadNotificationsCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Message Icon */}
+          {showMessaging && (
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('Messaging')}
+            >
+              <View style={styles.iconContainer}>
+                <Text style={styles.messageIcon}>💬</Text>
+                {unreadMessagesCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -113,10 +138,15 @@ const styles = StyleSheet.create({
     width: 150,
     height: 50,
   },
-  messageButton: {
+  iconsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  iconButton: {
     padding: 8,
   },
-  messageIconContainer: {
+  iconContainer: {
     position: 'relative',
   },
   messageIcon: {

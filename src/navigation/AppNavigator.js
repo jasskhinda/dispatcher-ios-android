@@ -22,6 +22,7 @@ import CreateTripScreen from '../screens/CreateTripScreen';
 import DriversScreen from '../screens/DriversScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import MessagingScreen from '../screens/MessagingScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -187,6 +188,11 @@ const AppStack = () => (
     <Stack.Screen
       name="Messaging"
       component={MessagingScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="Notifications"
+      component={NotificationsScreen}
       options={{ headerShown: false }}
     />
   </Stack.Navigator>

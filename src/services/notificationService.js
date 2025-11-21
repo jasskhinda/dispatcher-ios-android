@@ -39,8 +39,14 @@ export async function registerForPushNotificationsAsync() {
       return null;
     }
 
-    token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log('Expo Push Token:', token);
+    try {
+      token = (await Notifications.getExpoPushTokenAsync()).data;
+      console.log('Expo Push Token:', token);
+    } catch (error) {
+      console.log('⚠️ Push notifications not available in Expo Go without projectId');
+      console.log('Push notifications will work in production builds');
+      return null;
+    }
   } else {
     console.log('Must use physical device for Push Notifications');
   }
