@@ -23,6 +23,9 @@ import DriversScreen from '../screens/DriversScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import MessagingScreen from '../screens/MessagingScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import LiveTrackingScreen from '../screens/LiveTrackingScreen';
+import ActiveTripsScreen from '../screens/ActiveTripsScreen';
+import AssignDriverScreen from '../screens/AssignDriverScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -99,15 +102,15 @@ const HomeTabs = () => {
         }}
       />
       <Tab.Screen
-        name="AllTrips"
-        component={AllTripsScreen}
+        name="ActiveTrips"
+        component={ActiveTripsScreen}
         options={{
-          tabBarLabel: 'Trips',
+          tabBarLabel: 'Live',
           tabBarIcon: ({ color, focused }) => {
             const isFocused = Boolean(focused);
             return (
               <Ionicons
-                name={isFocused ? 'car' : 'car-outline'}
+                name={isFocused ? 'navigate-circle' : 'navigate-circle-outline'}
                 size={24}
                 color={color}
               />
@@ -116,15 +119,15 @@ const HomeTabs = () => {
         }}
       />
       <Tab.Screen
-        name="IndividualTrips"
-        component={IndividualTripsScreen}
+        name="AllTrips"
+        component={AllTripsScreen}
         options={{
-          tabBarLabel: 'Individual',
+          tabBarLabel: 'All Trips',
           tabBarIcon: ({ color, focused }) => {
             const isFocused = Boolean(focused);
             return (
               <Ionicons
-                name={isFocused ? 'person' : 'person-outline'}
+                name={isFocused ? 'list' : 'list-outline'}
                 size={24}
                 color={color}
               />
@@ -193,6 +196,16 @@ const AppStack = () => (
     <Stack.Screen
       name="Notifications"
       component={NotificationsScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="LiveTracking"
+      component={LiveTrackingScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="AssignDriver"
+      component={AssignDriverScreen}
       options={{ headerShown: false }}
     />
   </Stack.Navigator>

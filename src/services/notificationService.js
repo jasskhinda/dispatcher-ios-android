@@ -129,10 +129,15 @@ export function setupNotificationListeners(navigation) {
 
 // Clean up listeners
 export function cleanupNotificationListeners(listeners) {
-  if (listeners.notificationListener) {
-    Notifications.removeNotificationSubscription(listeners.notificationListener);
-  }
-  if (listeners.responseListener) {
-    Notifications.removeNotificationSubscription(listeners.responseListener);
+  try {
+    // In newer versions of expo-notifications, subscriptions have a remove() method
+    if (typeof listeners?.notificationListener?.remove === 'function') {
+      listeners.notificationListener.remove();
+    }
+    if (typeof listeners?.responseListener?.remove === 'function') {
+      listeners.responseListener.remove();
+    }
+  } catch (error) {
+    console.log('Error cleaning up notification listeners:', error);
   }
 }

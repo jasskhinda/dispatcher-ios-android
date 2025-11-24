@@ -600,14 +600,7 @@ const TripDetailsScreen = ({ route, navigation }) => {
               <>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.assignButton]}
-                  onPress={() => Alert.alert(
-                    'Assign Driver (Recommended)',
-                    'Assigning a driver is optional but recommended to track the driver\'s live location and provide real-time updates to clients.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Assign Driver', onPress: () => Alert.alert('Coming Soon', 'Driver assignment feature will be available soon') }
-                    ]
-                  )}
+                  onPress={() => navigation.navigate('AssignDriver', { tripId: trip.id })}
                   disabled={updating}
                 >
                   <Ionicons name="person-add" size={20} color="#fff" />
@@ -642,14 +635,25 @@ const TripDetailsScreen = ({ route, navigation }) => {
             )}
 
             {trip.status === 'in_progress' && (
-              <TouchableOpacity
-                style={[styles.actionButton, styles.completeButton]}
-                onPress={() => updateTripStatus('completed')}
-                disabled={updating}
-              >
-                <Ionicons name="checkmark-done-circle" size={20} color="#fff" />
-                <Text style={styles.actionButtonText}>Complete Trip</Text>
-              </TouchableOpacity>
+              <>
+                {trip.assigned_driver_id && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.trackingButton]}
+                    onPress={() => navigation.navigate('LiveTracking', { tripId: trip.id })}
+                  >
+                    <Ionicons name="navigate" size={20} color="#fff" />
+                    <Text style={styles.actionButtonText}>Live Tracking</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.completeButton]}
+                  onPress={() => updateTripStatus('completed')}
+                  disabled={updating}
+                >
+                  <Ionicons name="checkmark-done-circle" size={20} color="#fff" />
+                  <Text style={styles.actionButtonText}>Complete Trip</Text>
+                </TouchableOpacity>
+              </>
             )}
 
               {trip.status !== 'completed' && trip.status !== 'cancelled' && (
@@ -895,6 +899,9 @@ const styles = StyleSheet.create({
   },
   startButton: {
     backgroundColor: '#4A90E2',
+  },
+  trackingButton: {
+    backgroundColor: BRAND_COLOR,
   },
   completeButton: {
     backgroundColor: '#4CAF50',
