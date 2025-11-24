@@ -79,24 +79,31 @@ export default function LiveTrackingScreen({ route, navigation }) {
 
       setTrip({ ...tripData, driver: driverData, client: clientData });
 
-      // Geocode addresses
+      // Geocode addresses - use await to ensure they complete before rendering
       if (tripData.pickup_address) {
-        geocodeAddress(tripData.pickup_address, setPickupCoords);
+        await geocodeAddress(tripData.pickup_address, setPickupCoords);
+      } else {
+        // Fallback to default location if no pickup address
+        setPickupCoords({ latitude: 37.7749, longitude: -122.4194 });
       }
+
       if (tripData.destination_address) {
-        geocodeAddress(tripData.destination_address, setDestinationCoords);
+        await geocodeAddress(tripData.destination_address, setDestinationCoords);
+      } else {
+        // Fallback to default location if no destination address
+        setDestinationCoords({ latitude: 37.7849, longitude: -122.4094 });
       }
 
       // Fetch latest driver location
-      const { data: latestLocation } = await supabase
+      const { data: locationData } = await supabase
         .from('driver_location')
         .select('*')
         .eq('trip_id', tripId)
         .order('timestamp', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (latestLocation) {
+      if (locationData && locationData.length > 0) {
+        const latestLocation = locationData[0];
         setDriverLocation({
           latitude: latestLocation.latitude,
           longitude: latestLocation.longitude,
@@ -139,27 +146,52 @@ export default function LiveTrackingScreen({ route, navigation }) {
 
   const geocodeAddress = async (address, setCoords) => {
     try {
+      console.log('🗺️ Geocoding address:', address);
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyDylwCsypHOs6T9e-JnTA7AoqOMrc3hbhE`
       );
       const data = await response.json();
+
+      if (data.status !== 'OK') {
+        console.error('❌ Geocoding failed:', data.status, data.error_message);
+        // Set fallback coordinates (San Francisco downtown)
+        setCoords({ latitude: 37.7749, longitude: -122.4194 });
+        return;
+      }
+
       if (data.results && data.results.length > 0) {
         const { lat, lng } = data.results[0].geometry.location;
+        console.log('✅ Geocoded to:', lat, lng);
         setCoords({ latitude: lat, longitude: lng });
+      } else {
+        console.error('❌ No geocoding results for:', address);
+        // Set fallback coordinates
+        setCoords({ latitude: 37.7749, longitude: -122.4194 });
       }
     } catch (error) {
-      console.error('Error geocoding address:', error);
+      console.error('❌ Error geocoding address:', error);
+      // Set fallback coordinates even on network error
+      setCoords({ latitude: 37.7749, longitude: -122.4194 });
     }
   };
 
   // Fit map to show all markers
   useEffect(() => {
     if (mapRef.current && pickupCoords && destinationCoords && driverLocation) {
-      const coordinates = [pickupCoords, destinationCoords, driverLocation];
-      mapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: { top: 100, right: 50, bottom: 300, left: 50 },
-        animated: true,
-      });
+      try {
+        const coordinates = [pickupCoords, destinationCoords, driverLocation];
+        // Add a small delay to ensure map is fully initialized
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.fitToCoordinates(coordinates, {
+              edgePadding: { top: 100, right: 50, bottom: 300, left: 50 },
+              animated: true,
+            });
+          }
+        }, 500);
+      } catch (error) {
+        console.error('Error fitting map to coordinates:', error);
+      }
     }
   }, [pickupCoords, destinationCoords, driverLocation]);
 
