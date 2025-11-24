@@ -59,7 +59,8 @@
           "icon": "./assets/notification.png",
           "color": "#5fbfc0"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "owner": "jass_khinda"
   }

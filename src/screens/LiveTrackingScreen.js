@@ -10,7 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
 
@@ -250,7 +250,6 @@ export default function LiveTrackingScreen({ route, navigation }) {
           <MapView
             ref={mapRef}
             style={styles.map}
-            provider={PROVIDER_GOOGLE}
             initialRegion={{
               latitude: pickupCoords.latitude,
               longitude: pickupCoords.longitude,
