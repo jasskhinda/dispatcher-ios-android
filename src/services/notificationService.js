@@ -1,7 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { supabase } from '../lib/supabase';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -55,46 +54,22 @@ export async function registerForPushNotificationsAsync() {
 }
 
 // Save push token to user profile
+// NOTE: OneSignal now handles push notifications via OneSignal.login(userId)
+// This function is kept for backward compatibility but no longer saves to database
 export async function savePushToken(userId, pushToken) {
   if (!pushToken) return;
 
-  try {
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        expo_push_token: pushToken,
-        push_notifications_enabled: true,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
-
-    if (error) {
-      console.error('Error saving push token:', error);
-    } else {
-      console.log('Push token saved successfully');
-    }
-  } catch (err) {
-    console.error('Error in savePushToken:', err);
-  }
+  // OneSignal handles push tokens automatically via OneSignal.login()
+  // No need to save expo_push_token to database anymore
+  console.log('Push token registered (OneSignal handles delivery)');
 }
 
 // Remove push token on logout
-export async function removePushToken(userId) {
-  try {
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        expo_push_token: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
-
-    if (error) {
-      console.error('Error removing push token:', error);
-    }
-  } catch (err) {
-    console.error('Error in removePushToken:', err);
-  }
+// NOTE: OneSignal handles logout via OneSignal.logout()
+// This function is kept for backward compatibility
+export async function removePushToken() {
+  // OneSignal handles push token cleanup automatically via OneSignal.logout()
+  console.log('Push token cleanup (OneSignal handles this)');
 }
 
 // Set up notification listeners

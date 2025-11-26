@@ -1,7 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { supabase } from '../lib/supabase';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -63,25 +62,12 @@ export async function registerForPushNotificationsAsync() {
 }
 
 // Save push token to database
+// NOTE: OneSignal now handles push notifications via OneSignal.login(userId)
+// This function is kept for backward compatibility but no longer saves to database
 export async function savePushToken(userId, token) {
-  try {
-    const { error } = await supabase
-      .from('push_tokens')
-      .upsert({
-        user_id: userId,
-        app_type: 'dispatcher',  // This is the dispatcher app
-        push_token: token,
-        platform: Platform.OS,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id,app_type,platform'
-      });
-
-    if (error) throw error;
-    console.log('✅ Push token saved successfully');
-  } catch (error) {
-    console.error('Error saving push token:', error);
-  }
+  // OneSignal handles push tokens automatically via OneSignal.login()
+  // No need to save to push_tokens table anymore
+  console.log('✅ Push token registered (OneSignal handles delivery)');
 }
 
 // Schedule a local notification
@@ -152,23 +138,8 @@ export function getDispatcherNotificationMessage(type, tripDetails = {}) {
 }
 
 // Save notification to history
+// NOTE: This is optional - notifications are handled by OneSignal now
 export async function saveNotificationToHistory(userId, title, body, data = {}) {
-  try {
-    const { error } = await supabase
-      .from('notifications')
-      .insert({
-        user_id: userId,
-        app_type: 'dispatcher',  // This is the dispatcher app
-        notification_type: data.type || 'general',
-        title,
-        body,
-        data,
-        read: false,
-      });
-
-    if (error) throw error;
-    console.log('✅ Notification saved to history');
-  } catch (error) {
-    console.error('Error saving notification to history:', error);
-  }
+  // Notification history is optional - OneSignal tracks notifications
+  console.log('📝 Notification received:', { title, body, data });
 }
