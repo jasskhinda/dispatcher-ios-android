@@ -12,7 +12,7 @@ require('dotenv').config({ path: '.env' });
 
 const supabase = createClient(
   process.env.EXPO_PUBLIC_SUPABASE_URL,
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
 );
 
 // Helper to interpolate between two points
@@ -58,6 +58,15 @@ async function simulateDriverLocation(tripId) {
   console.log(`✅ Pickup coords: ${pickupCoords.latitude}, ${pickupCoords.longitude}`);
   console.log(`✅ Destination coords: ${destCoords.latitude}, ${destCoords.longitude}`);
 
+  // Get driver ID from trip
+  const driverId = trip.driver_id || trip.assigned_driver_id;
+  if (!driverId) {
+    console.error('❌ No driver assigned to this trip. Please assign a driver first.');
+    process.exit(1);
+  }
+
+  console.log(`👤 Driver ID: ${driverId}`);
+
   // Generate 20 points along the route
   const route = interpolateCoordinates(pickupCoords, destCoords, 20);
   console.log(`\n🗺️  Generated ${route.length} GPS points along route`);
@@ -84,11 +93,11 @@ async function simulateDriverLocation(tripId) {
       .from('driver_location')
       .insert({
         trip_id: tripId,
+        driver_id: driverId,
         latitude: coords.latitude,
         longitude: coords.longitude,
         heading: heading,
         speed: 15.0, // ~15 m/s = ~54 km/h
-        accuracy: 10,
         timestamp: new Date().toISOString(),
       });
 

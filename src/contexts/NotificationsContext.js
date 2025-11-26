@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { registerForPushNotificationsAsync, savePushToken, scheduleLocalNotification } from '../services/notifications';
+import OneSignalService from '../../services/onesignalService';
 
 const NotificationsContext = createContext();
 
@@ -41,6 +43,9 @@ export const NotificationsProvider = ({ children }) => {
       setNotifications(data || []);
       const unread = (data || []).filter(n => !n.read).length;
       setUnreadCount(unread);
+
+      // Update OneSignal badge count
+      await OneSignalService.setBadgeCount(unread);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
@@ -62,7 +67,11 @@ export const NotificationsProvider = ({ children }) => {
       setNotifications(prev =>
         prev.map(n => n.id === notificationId ? { ...n, read: true, read_at: new Date().toISOString() } : n)
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      const newCount = Math.max(0, unreadCount - 1);
+      setUnreadCount(newCount);
+
+      // Update OneSignal badge count
+      await OneSignalService.setBadgeCount(newCount);
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -87,6 +96,9 @@ export const NotificationsProvider = ({ children }) => {
         prev.map(n => ({ ...n, read: true, read_at: new Date().toISOString() }))
       );
       setUnreadCount(0);
+
+      // Clear OneSignal badge
+      await OneSignalService.setBadgeCount(0);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
@@ -114,6 +126,53 @@ export const NotificationsProvider = ({ children }) => {
     }
   };
 
+  // Initialize OneSignal when app starts
+  useEffect(() => {
+    console.log('🔔 Initializing OneSignal for dispatcher app');
+    OneSignalService.initialize();
+  }, []);
+
+  // Register for push notifications when user logs in
+  useEffect(() => {
+    if (!user?.id) {
+      // Logout from OneSignal on user logout
+      OneSignalService.logout();
+      return;
+    }
+
+    const registerPushNotifications = async () => {
+      try {
+        console.log('📱 Registering dispatcher for push notifications...');
+
+        // Login to OneSignal with user ID (SDK 5.x)
+        OneSignalService.login(user.id);
+
+        // Set OneSignal tags for user segmentation (SDK 5.x)
+        OneSignalService.addTags({
+          user_id: user.id,
+          app_type: 'dispatcher',
+          role: 'dispatcher'
+        });
+
+        // Get OneSignal ID
+        const playerId = await OneSignalService.getPlayerId();
+        console.log('📱 OneSignal ID:', playerId);
+
+        // Also register for legacy notifications (fallback)
+        const token = await registerForPushNotificationsAsync();
+
+        if (token && token !== 'LOCAL_NOTIFICATIONS_ONLY') {
+          await savePushToken(user.id, token);
+          console.log('💾 Dispatcher push token saved');
+        }
+      } catch (error) {
+        console.error('Error registering push notifications:', error);
+      }
+    };
+
+    registerPushNotifications();
+  }, [user?.id]);
+
   // Set up real-time subscription for new notifications
   useEffect(() => {
     if (!user?.id) {
@@ -137,12 +196,28 @@ export const NotificationsProvider = ({ children }) => {
           table: 'notifications',
           filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
+        async (payload) => {
           // Only add if it's for dispatcher app
           if (payload.new.app_type === 'dispatcher') {
             console.log('New notification received:', payload.new);
             setNotifications(prev => [payload.new, ...prev]);
-            setUnreadCount(prev => prev + 1);
+            setUnreadCount(prev => {
+              const newCount = prev + 1;
+              // Update OneSignal badge count
+              OneSignalService.setBadgeCount(newCount);
+              return newCount;
+            });
+
+            // Show local notification
+            try {
+              await scheduleLocalNotification(
+                payload.new.title,
+                payload.new.body,
+                payload.new.data
+              );
+            } catch (error) {
+              console.error('Error showing local notification:', error);
+            }
           }
         }
       )

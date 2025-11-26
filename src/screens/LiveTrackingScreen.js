@@ -8,13 +8,17 @@ import {
   Dimensions,
   Alert,
   Linking,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapViewDirections from 'react-native-maps-directions';
 import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
+import CarMarker from '../components/CarMarker';
 
 const BRAND_COLOR = '#5fbfc0';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyDylwCsypHOs6T9e-JnTA7AoqOMrc3hbhE';
 const { width, height } = Dimensions.get('window');
 
 export default function LiveTrackingScreen({ route, navigation }) {
@@ -26,6 +30,8 @@ export default function LiveTrackingScreen({ route, navigation }) {
   const [destinationCoords, setDestinationCoords] = useState(null);
   const mapRef = useRef(null);
   const locationSubscription = useRef(null);
+  const markerRef = useRef(null);
+  const animatedCoordinate = useRef(new Animated.ValueXY()).current;
 
   useEffect(() => {
     fetchTripDetails();
@@ -133,12 +139,23 @@ export default function LiveTrackingScreen({ route, navigation }) {
         },
         (payload) => {
           const newLocation = payload.new;
-          setDriverLocation({
+          const newCoords = {
             latitude: newLocation.latitude,
             longitude: newLocation.longitude,
             heading: newLocation.heading,
             speed: newLocation.speed,
-          });
+          };
+
+          // Animate the car marker to the new position smoothly
+          if (driverLocation) {
+            Animated.timing(animatedCoordinate, {
+              toValue: { x: newCoords.latitude, y: newCoords.longitude },
+              duration: 1000,
+              useNativeDriver: false,
+            }).start();
+          }
+
+          setDriverLocation(newCoords);
         }
       )
       .subscribe();
@@ -175,22 +192,24 @@ export default function LiveTrackingScreen({ route, navigation }) {
     }
   };
 
-  // Fit map to show all markers
+  // Update map region when all coordinates are loaded
   useEffect(() => {
-    if (mapRef.current && pickupCoords && destinationCoords && driverLocation) {
+    if (mapRef.current && pickupCoords && destinationCoords) {
       try {
-        const coordinates = [pickupCoords, destinationCoords, driverLocation];
-        // Add a small delay to ensure map is fully initialized
         setTimeout(() => {
           if (mapRef.current) {
-            mapRef.current.fitToCoordinates(coordinates, {
-              edgePadding: { top: 100, right: 50, bottom: 300, left: 50 },
+            const coords = [pickupCoords, destinationCoords];
+            if (driverLocation) {
+              coords.push(driverLocation);
+            }
+            mapRef.current.fitToCoordinates(coords, {
+              edgePadding: { top: 120, right: 80, bottom: 350, left: 80 },
               animated: true,
             });
           }
-        }, 500);
+        }, 800);
       } catch (error) {
-        console.error('Error fitting map to coordinates:', error);
+        console.error('Error fitting to coordinates:', error);
       }
     }
   }, [pickupCoords, destinationCoords, driverLocation]);
@@ -221,7 +240,7 @@ export default function LiveTrackingScreen({ route, navigation }) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Header title="Live Tracking" showBack onBackPress={() => navigation.goBack()} />
+        <Header title="Live Tracking" onBack={() => navigation.goBack()} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={BRAND_COLOR} />
         </View>
@@ -232,7 +251,7 @@ export default function LiveTrackingScreen({ route, navigation }) {
   if (!trip) {
     return (
       <View style={styles.container}>
-        <Header title="Live Tracking" showBack onBackPress={() => navigation.goBack()} />
+        <Header title="Live Tracking" onBack={() => navigation.goBack()} />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Trip not found</Text>
         </View>
@@ -242,75 +261,87 @@ export default function LiveTrackingScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Header title="Live Tracking" showBack onBackPress={() => navigation.goBack()} />
+      <Header title="Live Tracking" onBack={() => navigation.goBack()} />
 
       {/* Map View */}
       <View style={styles.mapContainer}>
-        {pickupCoords && destinationCoords ? (
+        {pickupCoords ? (
           <MapView
             ref={mapRef}
             style={styles.map}
             initialRegion={{
               latitude: pickupCoords.latitude,
               longitude: pickupCoords.longitude,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
+              latitudeDelta: 0.15,
+              longitudeDelta: 0.15,
             }}
             showsUserLocation={false}
             showsMyLocationButton={false}
             loadingEnabled={true}
           >
-            {/* Pickup Marker */}
-            <Marker
-              coordinate={pickupCoords}
-              title="Pickup Location"
-              description={trip.pickup_address}
-            >
-              <View style={styles.pickupMarker}>
-                <Ionicons name="location" size={32} color="#10B981" />
-              </View>
-            </Marker>
+            {/* Pickup Location Marker */}
+            {pickupCoords && (
+              <Marker
+                coordinate={pickupCoords}
+                title="Pickup Location"
+                pinColor="#10B981"
+              >
+                <View style={styles.pickupMarker}>
+                  <Ionicons name="location" size={40} color="#10B981" />
+                </View>
+              </Marker>
+            )}
 
-            {/* Destination Marker */}
-            <Marker
-              coordinate={destinationCoords}
-              title="Destination"
-              description={trip.destination_address}
-            >
-              <View style={styles.destinationMarker}>
-                <Ionicons name="flag" size={32} color="#EF4444" />
-              </View>
-            </Marker>
+            {/* Destination Location Marker */}
+            {destinationCoords && (
+              <Marker
+                coordinate={destinationCoords}
+                title="Destination"
+                pinColor="#EF4444"
+              >
+                <View style={styles.destinationMarker}>
+                  <Ionicons name="flag" size={40} color="#EF4444" />
+                </View>
+              </Marker>
+            )}
 
-            {/* Driver Location Marker */}
+            {/* Driver Location Marker - Professional Uber Style */}
             {driverLocation && (
               <Marker
                 coordinate={driverLocation}
                 title={getDriverName()}
                 anchor={{ x: 0.5, y: 0.5 }}
                 rotation={driverLocation.heading || 0}
+                flat={true}
               >
-                <View style={styles.driverMarker}>
-                  <View style={styles.driverMarkerInner}>
-                    <Ionicons name="car" size={24} color="#fff" />
-                  </View>
-                </View>
+                <CarMarker size={56} color={BRAND_COLOR} />
               </Marker>
             )}
 
-            {/* Route Polyline */}
-            {driverLocation && (
-              <Polyline
-                coordinates={[pickupCoords, driverLocation, destinationCoords]}
-                strokeColor={BRAND_COLOR}
-                strokeWidth={4}
-                lineDashPattern={[1]}
+            {/* Driving Route */}
+            {pickupCoords && destinationCoords && (
+              <MapViewDirections
+                origin={pickupCoords}
+                destination={destinationCoords}
+                apikey={GOOGLE_MAPS_API_KEY}
+                strokeWidth={3}
+                strokeColor="#007AFF"
+                optimizeWaypoints={true}
+                onReady={(result) => {
+                  console.log('Route loaded:', result.distance, 'km');
+                }}
+                onError={(errorMessage) => {
+                  console.error('MapViewDirections error:', errorMessage);
+                }}
               />
             )}
           </MapView>
         ) : (
           <View style={styles.map}>
             <ActivityIndicator size="large" color={BRAND_COLOR} />
+            <Text style={{ marginTop: 10, color: '#666' }}>
+              Loading map...
+            </Text>
           </View>
         )}
       </View>
@@ -435,14 +466,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
-  },
-  driverMarkerInner: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: BRAND_COLOR,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   infoOverlay: {
     position: 'absolute',

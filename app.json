@@ -4,7 +4,7 @@
     "slug": "cct-dispatcher-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icons.png",
     "userInterfaceStyle": "light",
     "scheme": "cctdispatcher",
     "newArchEnabled": false,
@@ -30,7 +30,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/androidicon.png",
         "backgroundColor": "#5fbfc0"
       },
       "edgeToEdgeEnabled": false,
@@ -56,12 +56,40 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification.png",
           "color": "#5fbfc0"
+        }
+      ],
+      [
+        "onesignal-expo-plugin",
+        {
+          "mode": "development"
         }
       ],
       "expo-font"
     ],
-    "owner": "jass_khinda"
+    "owner": "jass_khinda",
+    "extra": {
+      "oneSignalAppId": "ff9262e5-fe8a-4b14-827f-d67232a4c688",
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "OneSignalNotificationServiceExtension",
+                  "bundleIdentifier": "com.compassionatecare.dispatcher.OneSignalNotificationServiceExtension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.compassionatecare.dispatcher.onesignal"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "24b8d1bf-2bd7-49bd-b76d-fa3602345566"
+      }
+    }
   }
 }

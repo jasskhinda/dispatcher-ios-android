@@ -129,13 +129,24 @@ export function setupNotificationListeners(navigation) {
 
 // Clean up listeners
 export function cleanupNotificationListeners(listeners) {
+  if (!listeners) return;
+
   try {
     // In newer versions of expo-notifications, subscriptions have a remove() method
-    if (typeof listeners?.notificationListener?.remove === 'function') {
-      listeners.notificationListener.remove();
+    if (listeners.notificationListener) {
+      if (typeof listeners.notificationListener.remove === 'function') {
+        listeners.notificationListener.remove();
+      } else if (typeof Notifications.removeNotificationSubscription === 'function') {
+        Notifications.removeNotificationSubscription(listeners.notificationListener);
+      }
     }
-    if (typeof listeners?.responseListener?.remove === 'function') {
-      listeners.responseListener.remove();
+
+    if (listeners.responseListener) {
+      if (typeof listeners.responseListener.remove === 'function') {
+        listeners.responseListener.remove();
+      } else if (typeof Notifications.removeNotificationSubscription === 'function') {
+        Notifications.removeNotificationSubscription(listeners.responseListener);
+      }
     }
   } catch (error) {
     console.log('Error cleaning up notification listeners:', error);

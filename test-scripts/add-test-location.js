@@ -12,7 +12,7 @@ require('dotenv').config({ path: '.env' });
 
 const supabase = createClient(
   process.env.EXPO_PUBLIC_SUPABASE_URL,
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
 );
 
 async function geocodeAddress(address) {
@@ -70,16 +70,25 @@ async function addTestLocation(tripId) {
   console.log(`📍 Destination coords: ${destCoords.latitude.toFixed(6)}, ${destCoords.longitude.toFixed(6)}`);
   console.log(`📍 Test location (midpoint): ${midpoint.latitude.toFixed(6)}, ${midpoint.longitude.toFixed(6)}`);
 
+  // Get driver ID from trip
+  const driverId = trip.driver_id || trip.assigned_driver_id;
+  if (!driverId) {
+    console.error('❌ No driver assigned to this trip. Please assign a driver first.');
+    process.exit(1);
+  }
+
+  console.log(`👤 Driver ID: ${driverId}`);
+
   // Insert the test location
   const { error } = await supabase
     .from('driver_location')
     .insert({
       trip_id: tripId,
+      driver_id: driverId,
       latitude: midpoint.latitude,
       longitude: midpoint.longitude,
       heading: 45, // Northeast
       speed: 15.0,
-      accuracy: 10,
       timestamp: new Date().toISOString(),
     });
 
